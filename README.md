@@ -100,3 +100,4 @@ By setting a breakpoints on DrawThemeText and DrawThemeBackground etc in a simpl
 ## Alternatives (?)
 * https://www.codeproject.com/articles/3696/a-revolutionary-new-approach-to-custom-drawn-menus
   * https://stackoverflow.com/questions/20806664/custom-menu-border-in-pure-win32-c-w-o-wtl-mfc-etc
+* https://github.com/microsoft/WindowsAppSDK/issues/41

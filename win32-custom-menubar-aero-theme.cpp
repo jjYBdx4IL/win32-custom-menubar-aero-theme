@@ -26,6 +26,28 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     UNREFERENCED_PARAMETER(hPrevInstance);
     UNREFERENCED_PARAMETER(lpCmdLine);
 
+
+
+    // https://gist.github.com/rounk-ctrl/b04e5622e30e0d62956870d5c22b7017
+    enum class PreferredAppMode
+    {
+        Default,
+        AllowDark,
+        ForceDark,
+        ForceLight,
+        Max
+    };
+    using fnShouldAppsUseDarkMode = bool (WINAPI*)(); // ordinal 132
+    using fnAllowDarkModeForWindow = bool (WINAPI*)(HWND hWnd, bool allow); // ordinal 133
+    using fnSetPreferredAppMode = PreferredAppMode(WINAPI*)(PreferredAppMode appMode); // ordinal 135, in 1903
+    HMODULE hUxtheme = LoadLibraryExW(L"uxtheme.dll", nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32);
+    fnSetPreferredAppMode SetPreferredAppMode;
+    SetPreferredAppMode = (fnSetPreferredAppMode)GetProcAddress(hUxtheme, MAKEINTRESOURCEA(135));
+    SetPreferredAppMode(PreferredAppMode::AllowDark);
+    FreeLibrary(hUxtheme);
+
+
+
     // TODO: Place code here.
 
     // Initialize global strings
@@ -227,6 +249,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     case WM_DESTROY:
         PostQuitMessage(0);
         break;
+    case WM_INITMENUPOPUP:
     default:
         return DefWindowProc(hWnd, message, wParam, lParam);
     }

@@ -41,6 +41,7 @@ void UAHDrawMenuNCBottomLine(HWND hWnd)
 // return true if handled, false to continue with normal processing in your wndproc
 bool UAHWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam, LRESULT* lr)
 {
+    static int WM_INITMENUPOPUP_cnt = 0;
     switch (message)
     {
     case WM_UAHDRAWMENU:
@@ -167,6 +168,14 @@ bool UAHWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam, LRESULT* 
     case WM_STYLECHANGING:
     case WM_STYLECHANGED:
         return true;
+    case WM_INITMENUPOPUP:
+        WM_INITMENUPOPUP_cnt++;
+        return false;
+    case WM_ENTERIDLE:
+        if (WM_INITMENUPOPUP_cnt) {
+            // uncommit to spy on the menu popup... BUT windows doesn't allow that...
+            //Sleep(60000);
+        }
     default:
         return false;
     }
