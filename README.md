@@ -95,3 +95,8 @@ Forwarding this to DefWindowProc will fill in the values as expected, which is a
 Many years ago, a brush could be specified for the background in the `MENUINFO` structure, but this no longer became possible with visual themes. Nonclient drawing like the titlebar and menubar was handled within user32 in kernel mode, but this was moved out of there when visual themes started being used. In order to handle this in user mode, these special messages are sent to the main window, which are handled by DefWindowProc (which ends up calling _ThemeDefWindowProcW).
 
 By setting a breakpoints on DrawThemeText and DrawThemeBackground etc in a simple test application, eventually I saw CThemeMenuBar::DrawItem and CThemeMenuBar::DrawClientArea in the callstack, which was the eureka moment. Searching the web showed some references to these windows messages, and the WM_ names of them, but no information at all about what they do. The function signatures of these in uxtheme.dll provided some hints to the types of structures we are dealing with, such as tagUAHDRAWMENUITEM. Using public symbols, we can determine some basic information about these structures, such as the member names and their size. Debugging and trial and error and intuition allowed me to fill in the missing details.
+
+
+## Alternatives (?)
+* https://www.codeproject.com/articles/3696/a-revolutionary-new-approach-to-custom-drawn-menus
+  * https://stackoverflow.com/questions/20806664/custom-menu-border-in-pure-win32-c-w-o-wtl-mfc-etc

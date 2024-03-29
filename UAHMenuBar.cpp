@@ -1,4 +1,3 @@
-#include "framework.h"
 #include <Uxtheme.h>
 #include <vsstyle.h>
 #include "UAHMenuBar.h"
@@ -128,7 +127,6 @@ bool UAHWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam, LRESULT* 
         }
 
         DTTOPTS opts = { sizeof(opts), DTT_TEXTCOLOR, iTextStateID != MPI_DISABLED ? RGB(0x00, 0x00, 0x20) : RGB(0x40, 0x40, 0x40) };
-
         FillRect(pUDMI->um.hdc, &pUDMI->dis.rcItem, *pbrBackground);
         DrawThemeTextEx(g_menuTheme, pUDMI->um.hdc, MENU_BARITEM, MBI_NORMAL, menuString, mii.cch, dwFlags, &pUDMI->dis.rcItem, &opts);
 
@@ -162,6 +160,13 @@ bool UAHWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam, LRESULT* 
         UAHDrawMenuNCBottomLine(hWnd);
         return true;
         break;
+    case WM_UAHINITMENU:
+        return false;
+    // the following two messages come through when fullscreen is toggled.
+    // apparently it helps to block them. ??
+    case WM_STYLECHANGING:
+    case WM_STYLECHANGED:
+        return true;
     default:
         return false;
     }

@@ -1,9 +1,9 @@
 // win32-custom-menubar-aero-theme.cpp : Defines the entry point for the application.
 //
 
-#include "framework.h"
 #include "win32-custom-menubar-aero-theme.h"
 #include "UAHMenuBar.h"
+#include "utils.h"
 
 #define MAX_LOADSTRING 100
 
@@ -114,6 +114,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 
 
 
+
 //
 //  FUNCTION: WndProc(HWND, UINT, WPARAM, LPARAM)
 //
@@ -142,8 +143,20 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     }
     if (dupe_counter == 0) {
         std::wstringstream str;
-        str << L"WndProc(" << hWnd << ", " << message << ", " << wParam << ", " << lParam << ")" << std::endl;
-        OutputDebugString(str.str().c_str());
+        WCHAR tmp[5];
+        swprintf_s(tmp, 5, L"%04x", message);
+        std::wstring s1 = std::format(L"{:%T}", std::chrono::system_clock::now());
+        str << s1 << L" WndProc(" << hWnd << ", " << get_message_name(message) << " 0x" << tmp << " " << message << ", " << wParam << ", " << lParam << ")" << std::endl;
+        switch (message) { // https://wiki.winehq.org/List_Of_Windows_Messages
+        case WM_SETCURSOR: // 0x0020 32
+        case WM_NCMOUSEMOVE: // 0x00a0		160
+        case WM_NCHITTEST: // 0x0084		132
+        case WM_MOUSEMOVE: // 0x0200 512
+        case WM_NCMOUSELEAVE: // 0x02a2		674
+            break;
+        default:
+            OutputDebugString(str.str().c_str());
+        }
     }
 
     LRESULT lr = 0;
