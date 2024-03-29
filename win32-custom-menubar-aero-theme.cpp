@@ -126,6 +126,26 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 //
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
+    static int dupe_counter = 0;
+    static int last_message = -1;
+    if (message == last_message) {
+        dupe_counter++;
+    }
+    else {
+        if (dupe_counter) {
+            std::wstringstream str;
+            str << L"Suppressed " << dupe_counter << " sequential messages of the same type" << std::endl;
+            OutputDebugString(str.str().c_str());
+            dupe_counter = 0;
+        }
+        last_message = message;
+    }
+    if (dupe_counter == 0) {
+        std::wstringstream str;
+        str << L"WndProc(" << hWnd << ", " << message << ", " << wParam << ", " << lParam << ")" << std::endl;
+        OutputDebugString(str.str().c_str());
+    }
+
     LRESULT lr = 0;
     if (UAHWndProc(hWnd, message, wParam, lParam, &lr)) {
         return lr;
@@ -133,6 +153,39 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
     switch (message)
     {
+    case WM_KEYDOWN:
+        if (wParam == 70) { // 'f'
+            //https://devblogs.microsoft.com/oldnewthing/20100412-00/?p=14353
+            static WINDOWPLACEMENT g_wpPrev = { sizeof(g_wpPrev) };
+            DWORD dwStyle = GetWindowLong(hWnd, GWL_STYLE);
+            ASSERT(dwStyle);
+            if (dwStyle & WS_OVERLAPPEDWINDOW) {
+                MONITORINFO mi = { sizeof(mi) };
+                if (GetWindowPlacement(hWnd, &g_wpPrev) &&
+                    GetMonitorInfo(MonitorFromWindow(hWnd,
+                        MONITOR_DEFAULTTOPRIMARY), &mi)) {
+                    SetWindowLong(hWnd, GWL_STYLE, dwStyle & ~WS_OVERLAPPEDWINDOW);
+                    BOOL res = SetWindowPos(hWnd, HWND_TOP,
+                        mi.rcMonitor.left,
+                        mi.rcMonitor.top,
+                        mi.rcMonitor.right - mi.rcMonitor.left,
+                        mi.rcMonitor.bottom - mi.rcMonitor.top,
+                        SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
+                    ASSERT(res);
+                }
+            }
+            else {
+                SetWindowLong(hWnd, GWL_STYLE, dwStyle | WS_OVERLAPPEDWINDOW);
+                SetWindowPlacement(hWnd, &g_wpPrev);
+                SetWindowPos(hWnd, NULL, 0, 0, 0, 0,
+                    SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER |
+                    SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
+            }
+        }
+        if (wParam == 81) { // 'q'
+            PostMessage(hWnd, WM_CLOSE, 0, 0);
+        }
+        break;
     case WM_COMMAND:
         {
             int wmId = LOWORD(wParam);
