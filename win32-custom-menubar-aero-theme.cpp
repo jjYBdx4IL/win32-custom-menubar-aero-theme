@@ -27,7 +27,6 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     UNREFERENCED_PARAMETER(lpCmdLine);
 
 
-
     // https://gist.github.com/rounk-ctrl/b04e5622e30e0d62956870d5c22b7017
     enum class PreferredAppMode
     {
@@ -127,6 +126,13 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
    {
       return FALSE;
    }
+
+   // https://stackoverflow.com/questions/39261826/change-the-color-of-the-title-bar-caption-of-a-win32-application
+   BOOL USE_DARK_MODE = true;
+   BOOL SET_IMMERSIVE_DARK_MODE_SUCCESS = SUCCEEDED(DwmSetWindowAttribute(
+       hWnd, DWMWINDOWATTRIBUTE::DWMWA_USE_IMMERSIVE_DARK_MODE,
+       &USE_DARK_MODE, sizeof(USE_DARK_MODE)));
+   ASSERT(SET_IMMERSIVE_DARK_MODE_SUCCESS);
 
    ShowWindow(hWnd, nCmdShow);
    UpdateWindow(hWnd);
