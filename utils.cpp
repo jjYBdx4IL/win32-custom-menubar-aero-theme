@@ -1068,3 +1068,126 @@ LPCWSTR get_message_name(DWORD msg) {
 	if (msg == 52429) return L"WM_RASDIALEVENT";
 	return L"???";
 }
+
+void initDarkMode() {
+	//// https://gist.github.com/rounk-ctrl/b04e5622e30e0d62956870d5c22b7017
+	enum class PreferredAppMode
+	{
+		Default,
+		AllowDark,
+		ForceDark,
+		ForceLight,
+		Max
+	};
+	using fnShouldAppsUseDarkMode = bool (WINAPI*)(); // ordinal 132
+	using fnAllowDarkModeForWindow = bool (WINAPI*)(HWND hWnd, bool allow); // ordinal 133
+	using fnSetPreferredAppMode = PreferredAppMode(WINAPI*)(PreferredAppMode appMode); // ordinal 135, in 1903
+	HMODULE hUxtheme = LoadLibraryExW(L"uxtheme.dll", nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32);
+	fnSetPreferredAppMode SetPreferredAppMode;
+	SetPreferredAppMode = (fnSetPreferredAppMode)GetProcAddress(hUxtheme, MAKEINTRESOURCEA(135));
+	SetPreferredAppMode(PreferredAppMode::ForceDark);
+	FreeLibrary(hUxtheme);
+}
+
+void setImmersiveDarkMode(HWND hWnd) {
+	// https://stackoverflow.com/questions/39261826/change-the-color-of-the-title-bar-caption-of-a-win32-application
+	BOOL USE_DARK_MODE = true;
+	BOOL SET_IMMERSIVE_DARK_MODE_SUCCESS = SUCCEEDED(DwmSetWindowAttribute(
+		hWnd, DWMWINDOWATTRIBUTE::DWMWA_USE_IMMERSIVE_DARK_MODE,
+		&USE_DARK_MODE, sizeof(USE_DARK_MODE)));
+	ASSERT(SET_IMMERSIVE_DARK_MODE_SUCCESS);
+}
+
+void dbgMsg(HWND hWnd, UINT_PTR subclass, UINT message, WPARAM wParam, LPARAM lParam)
+{
+	switch (message) { // https://wiki.winehq.org/List_Of_Windows_Messages
+	case WM_GETTEXT:
+	case WM_SETCURSOR: // 0x0020 32
+	case WM_NCMOUSEMOVE: // 0x00a0		160
+	case WM_NCHITTEST: // 0x0084		132
+	case WM_MOUSEMOVE: // 0x0200 512
+	case WM_NCMOUSELEAVE: // 0x02a2		674
+	case WM_TIMER:
+	case 2034:
+		return;
+	}
+
+	static int dupe_counter = 0;
+	static int last_message = -1;
+	static HWND last_hwnd = NULL;
+	static UINT_PTR last_subclass = -1;
+	if (message == last_message && hWnd == last_hwnd) {
+		dupe_counter++;
+	}
+	else {
+		if (dupe_counter) {
+			std::wstringstream str;
+			WCHAR tmp[64];
+			swprintf_s(tmp, 64, L"%p", last_hwnd);
+			WCHAR tmp2[8];
+			swprintf_s(tmp2, 8, L" 0x%04x", last_message);
+			std::wstring s1 = std::format(L"{:%T}", std::chrono::system_clock::now());
+			str << s1 << L" dbgMsg(" << tmp << L"," << last_subclass << L")" << L" Suppressed " << dupe_counter << " sequential messages of the same type" << tmp2 << L" " << get_message_name(last_message) << std::endl;
+			OutputDebugString(str.str().c_str());
+			dupe_counter = 0;
+		}
+		last_message = message;
+		last_hwnd = hWnd;
+		last_subclass = subclass;
+	}
+	if (dupe_counter == 0) {
+		HWND parent = GetParent(hWnd);
+		WCHAR _parent[64];
+		swprintf_s(_parent, 64, L" (parent=%p)", parent);
+		WCHAR tmp[64];
+		swprintf_s(tmp, 64, L"%p", hWnd);
+		WCHAR tmp2[8];
+		swprintf_s(tmp2, 8, L" 0x%04x", message);
+
+		WCHAR tmp_style[64];
+		DWORD style = GetWindowLongPtr(hWnd, GWL_STYLE);
+		swprintf_s(tmp_style, 64, L" (style=0x%08x)", style);
+
+		TCHAR wtxt[512];
+		TCHAR wcls[512];
+		GetWindowText(hWnd, wtxt, 512);
+		GetClassName(hWnd, wcls, 512);
+
+		if (!wcscmp(wcls, L"REAPERwnd")) { // remove private data from debug output
+			PWCHAR pos = wcsstr(wtxt, L" - Registered");
+			if (pos) {
+				*pos = L'\0';
+			}
+		}
+
+		std::wstring s1 = std::format(L"{:%T}", std::chrono::system_clock::now());
+		std::wstringstream str;
+		str << s1 << L" dbgMsg(" << tmp << L"," << subclass << L") '" << wcls << L"'(" << wtxt << L") " << get_message_name(message) << tmp2 << L"(" << message << L"), " \
+			<< wParam << L", " << lParam << _parent << tmp_style << std::endl;
+		OutputDebugString(str.str().c_str());
+	}
+}
+
+LRESULT CALLBACK CallWndSubClassProc(HWND hWnd, UINT uMsg, WPARAM wParam,
+	LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData)
+{
+	dbgMsg(hWnd, uIdSubclass, uMsg, wParam, lParam);
+	return DefSubclassProc(hWnd, uMsg, wParam, lParam);
+}
+
+
+LRESULT CALLBACK CBTProc(int nCode,
+	WPARAM wParam, LPARAM lParam)
+{
+	if (nCode == HCBT_CREATEWND) {
+		HWND hWnd = (HWND)wParam;
+		BOOL lr = SetWindowSubclass(hWnd, CallWndSubClassProc, 0, 0);
+		ASSERT(lr);
+	}
+	else if (nCode == HCBT_DESTROYWND) {
+		HWND hWnd = (HWND)wParam;
+		RemoveWindowSubclass(hWnd, CallWndSubClassProc, 0);
+	}
+
+	return 0;
+}

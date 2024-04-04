@@ -11,6 +11,10 @@
 #include <dwmapi.h>
 #pragma comment(lib, "dwmapi.lib")
 
+// for subclassing
+#include <commctrl.h>
+#pragma comment(lib, "comctl32.lib")
+
 // C RunTime Header Files
 #include <stdlib.h>
 #include <malloc.h>

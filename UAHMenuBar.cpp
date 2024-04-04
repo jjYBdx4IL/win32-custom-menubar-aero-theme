@@ -31,7 +31,6 @@ void UAHDrawMenuNCBottomLine(HWND hWnd)
     rcAnnoyingLine.bottom = rcAnnoyingLine.top;
     rcAnnoyingLine.top--;
 
-
     HDC hdc = GetWindowDC(hWnd);
     FillRect(hdc, &rcAnnoyingLine, g_brBarBackground);
     ReleaseDC(hWnd, hdc);
@@ -125,13 +124,16 @@ bool UAHWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam, LRESULT* 
 
         if (!g_menuTheme) {
             g_menuTheme = OpenThemeData(hWnd, L"Menu");
+            ASSERT(g_menuTheme);
         }
 
         DTTOPTS opts = { sizeof(opts), DTT_TEXTCOLOR, iTextStateID != MPI_DISABLED ? RGB(0x00, 0x00, 0x20) : RGB(0x40, 0x40, 0x40) };
         FillRect(pUDMI->um.hdc, &pUDMI->dis.rcItem, *pbrBackground);
+        //DrawThemeBackground(g_menuTheme, pUDMI->um.hdc, 0, 0, &pUDMI->dis.rcItem, NULL);
         DrawThemeTextEx(g_menuTheme, pUDMI->um.hdc, MENU_BARITEM, MBI_NORMAL, menuString, mii.cch, dwFlags, &pUDMI->dis.rcItem, &opts);
 
         return true;
+        //return false;
     }
     case WM_UAHMEASUREMENUITEM:
     {
