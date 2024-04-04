@@ -1145,7 +1145,7 @@ void dbgMsg(HWND hWnd, UINT_PTR subclass, UINT message, WPARAM wParam, LPARAM lP
 		swprintf_s(tmp2, 8, L" 0x%04x", message);
 
 		WCHAR tmp_style[64];
-		DWORD style = GetWindowLongPtr(hWnd, GWL_STYLE);
+		DWORD style = GetWindowLong(hWnd, GWL_STYLE);
 		swprintf_s(tmp_style, 64, L" (style=0x%08x)", style);
 
 		TCHAR wtxt[512];
