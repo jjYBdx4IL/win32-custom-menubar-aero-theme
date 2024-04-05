@@ -27,10 +27,13 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     UNREFERENCED_PARAMETER(hPrevInstance);
     UNREFERENCED_PARAMETER(lpCmdLine);
 
+#ifndef NDEBUG
+    // set a hook for debugging purposes only
     ASSERT(!hook_);
     hook_ = SetWindowsHookEx(WH_CBT, CBTProc, NULL, GetCurrentThreadId());
     ASSERT(hook_);
     OutputDebugString(L"CBT Hook installed.\n");
+#endif
 
     // Initialize global strings
     LoadStringW(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
@@ -145,65 +148,23 @@ typedef struct tagCHARMENUITEM
 #define MENUITEM_BACKCOLOR      RGB(0,255,0) // or GetSysColor(COLOR_MENU)
 #define HIGHLIGHT_TEXTCOLOR     GetSysColor(COLOR_HIGHLIGHTTEXT)
 #define HIGHLIGHT_BACKCOLOR     GetSysColor(COLOR_HIGHLIGHT)
-//
-//   FUNCTION: CreateMenuItemFont(UINT)
-//
-//   PURPOSE: Create a logical font for a menu item according to its ID. 
-//
-//      Menu Item ID   -   Font
-//      IDM_REGULAR    -   A regular font
-//      IDM_BOLD       -   A bold font
-//      IDM_ITALIC     -   A italic font
-//      IDM_UNDERLINE  -   An underline font
-//
-//   PARAMETERS: 
-//   * uID - menu item ID.
-//
-//   RETURN VALUE: If the function succeeds, the return value is a handle 
-//   to a logical font. If the function fails, the return value is NULL.
-//
-HFONT CreateMenuItemFont(UINT uID)
+
+HFONT CreateMenuItemFont()
 {
     LOGFONT lf = { sizeof(lf) };
     wcscpy_s(lf.lfFaceName, ARRAYSIZE(lf.lfFaceName), L"Times New Roman");
     lf.lfHeight = 20;
-    //switch (uID)
-    //{
-    //case IDM_BOLD:
-    //    lf.lfWeight = FW_HEAVY;
-    //    break;
-    //case IDM_ITALIC:
-    //    lf.lfItalic = TRUE;
-    //    break;
-    //case IDM_UNDERLINE:
-    //    lf.lfUnderline = TRUE;
-    //    break;
-    //}
     return CreateFontIndirect(&lf);
 }
-//
-//   FUNCTION: OnCreate(HWND, LPCREATESTRUCT)
-//
-//   PURPOSE: Process the WM_CREATE message. Because a menu template cannot 
-//   specify owner-drawn items, the menu initially contains four text menu 
-//   items with the following strings: "Regular," "Bold," "Italic," and 
-//   "Underline." This function changes these to owner-drawn items, and 
-//   attaches to each menu item a CHARMENUITEM structure that will be used 
-//   when the menu item is created and drawn.
-//
-BOOL OnCreate(HWND hWnd, LPCREATESTRUCT lpCreateStruct)
-{
+static HFONT menuItemFont = CreateMenuItemFont();
+
+void prepareMenu(HMENU hMenu) {
     BOOL fSucceeded = TRUE;
-    HMENU hMenu = GetMenu(hWnd);
-    MENUITEMINFO mii = { sizeof(mii) };
-    UINT uID = 0;
     PCHARMENUITEM pcmi = NULL;
 
-    // Modify each menu item. Assume that the IDs IDM_REGULAR through 
-    // IDM_UNDERLINE are consecutive numbers.
-    for (uID = 0;; uID++)
+    for (UINT uID = 0; uID < GetMenuItemCount(hMenu); uID++)
     {
-        pcmi = NULL;
+        MENUITEMINFO mii = { sizeof(mii) };
 
         // To retrieve a menu item of type MFT_STRING, first find the length 
         // of the string by setting the dwTypeData member of MENUITEMINFO to 
@@ -239,7 +200,7 @@ BOOL OnCreate(HWND hWnd, LPCREATESTRUCT lpCreateStruct)
         }
 
         // Create the font used to draw the item. 
-        pcmi->hFont = CreateMenuItemFont(uID);
+        pcmi->hFont = menuItemFont;
         if (NULL == pcmi->hFont)
         {
             fSucceeded = FALSE;
@@ -249,7 +210,7 @@ BOOL OnCreate(HWND hWnd, LPCREATESTRUCT lpCreateStruct)
         // Change the item to an owner-drawn item, and save the 
         // address of the item structure as item data. 
         mii.fMask = MIIM_FTYPE | MIIM_DATA;
-        mii.fType = MFT_OWNERDRAW;
+        mii.fType = MF_OWNERDRAW;
         mii.dwItemData = (ULONG_PTR)pcmi;
         if (!SetMenuItemInfo(hMenu, uID, TRUE, &mii))
         {
@@ -263,9 +224,25 @@ BOOL OnCreate(HWND hWnd, LPCREATESTRUCT lpCreateStruct)
     {
         LocalFree(pcmi);
     }
+}
 
+//
+//   FUNCTION: OnCreate(HWND, LPCREATESTRUCT)
+//
+//   PURPOSE: Process the WM_CREATE message. Because a menu template cannot 
+//   specify owner-drawn items, the menu initially contains four text menu 
+//   items with the following strings: "Regular," "Bold," "Italic," and 
+//   "Underline." This function changes these to owner-drawn items, and 
+//   attaches to each menu item a CHARMENUITEM structure that will be used 
+//   when the menu item is created and drawn.
+//
+BOOL OnCreate(HWND hWnd, LPCREATESTRUCT lpCreateStruct)
+{
+    HMENU hMenu = GetMenu(hWnd);
+    prepareMenu(hMenu);
     return true;
 }
+
 //
 //   FUNCTION: OnMeasureItem(HWND, MEASUREITEMSTRUCT *)
 //
@@ -317,6 +294,7 @@ void OnDrawItem(HWND hWnd, const DRAWITEMSTRUCT* lpDrawItem)
 {
     // Retrieve the menu item's CHARMENUITEM structure.
     PCHARMENUITEM pcmi = (PCHARMENUITEM)lpDrawItem->itemData;
+    ASSERT(pcmi);
     if (pcmi)
     {
         COLORREF clrPrevText, clrPrevBkgnd;
@@ -341,17 +319,28 @@ void OnDrawItem(HWND hWnd, const DRAWITEMSTRUCT* lpDrawItem)
         x += GetSystemMetrics(SM_CXMENUCHECK);
 
         // Select the font and draw the text. 
-        hFontPrev = (HFONT)SelectObject(lpDrawItem->hDC, pcmi->hFont);
+        //hFontPrev = (HFONT)SelectObject(lpDrawItem->hDC, pcmi->hFont);
         ExtTextOut(lpDrawItem->hDC, x, y, ETO_OPAQUE, &lpDrawItem->rcItem,
             pcmi->szItemText, pcmi->cchItemText, NULL);
+        TCHAR buf[512];
+        ZeroMemory(buf, 512);
+        memcpy_s(buf, 512, (void*)pcmi->szItemText, pcmi->cchItemText * sizeof(TCHAR));
+        OutputDebugString(L"*** OnDrawItem: ");
+        OutputDebugString(buf);
+        OutputDebugString(L"\n");
 
         // Restore the original font and colors. 
-        SelectObject(lpDrawItem->hDC, hFontPrev);
+        //SelectObject(lpDrawItem->hDC, hFontPrev);
         SetTextColor(lpDrawItem->hDC, clrPrevText);
         SetBkColor(lpDrawItem->hDC, clrPrevBkgnd);
     }
 }
 
+void OnInitMenuPopup(HMENU hMenu, UINT nIndex, BOOL bSysMenu)
+{
+    UNREFERENCED_PARAMETER(nIndex);
+    prepareMenu(hMenu);
+}
 
 //
 //  FUNCTION: WndProc(HWND, UINT, WPARAM, LPARAM)
@@ -400,6 +389,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         OnDrawItem(hWnd, (LPDRAWITEMSTRUCT)lParam);
         break;
     }
+    case WM_INITMENUPOPUP:
+    {
+        OnInitMenuPopup((HMENU)wParam, LOWORD(lParam), HIWORD(lParam));
+        break;
+    }
     case WM_KEYDOWN:
     {
         if (wParam == 70) { // 'f'
@@ -437,7 +431,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     }
     case WM_MEASUREITEM:
     {
-        OnMeasureItem(hWnd, (LPMEASUREITEMSTRUCT)lParam);
+        //if (wParam == 0) { // handle menus only
+            OnMeasureItem(hWnd, (LPMEASUREITEMSTRUCT)lParam);
+        //}
         break;
     }
     case WM_PAINT:
@@ -450,7 +446,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     }
     case WM_SHOWWINDOW:
         break;
-    case WM_INITMENUPOPUP:
     default:
         break;
     }
